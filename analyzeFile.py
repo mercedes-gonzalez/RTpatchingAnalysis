@@ -20,7 +20,7 @@ SHOW_FINAL_PLOT = False
 SHOW_HEAD = False
 my_path = "C:/Users/mgonzalez91/Dropbox (GaTech)/Research/All Things Emory !/Emory-Patching/1-23-2020/"
 csv_name = "Jan-23-Analysis.csv"
-csv_file = my_path + csv_name
+csv_file = join(my_path,csv_name)
 cap = 26.1
 
 # Read only abf files from directory 
@@ -30,7 +30,7 @@ if SHOW_HEAD: abf.headerLaunch()
 
 # Analyze each file
 for file_name in abf_files:
-    full_file = my_path + file_name
+    full_file = join(my_path, file_name)
     abf = pyabf.ABF(full_file)
 
     input_cmd = np.empty((abf.sweepCount,1))
