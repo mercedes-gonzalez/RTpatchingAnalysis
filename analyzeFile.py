@@ -56,7 +56,7 @@ if SHOW_FINAL_PLOT:
     plt.show() 
 
 step_time = input_dur[0]/abf.dataRate*1000 # convert from input duration in samples to input duration in seconds
-step_time = .2 # temp 
+# step_time = .2 # temp 
 plt.figure()
 plt.plot(input_cmd/cap,AP_count/step_time)
 plt.plot(input_cmd/cap,AP_count/step_time,"o")
