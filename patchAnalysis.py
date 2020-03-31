@@ -19,7 +19,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.backend_bases import key_press_handler
 
 def analyzeFile(filename,self):
-    print(filename)
+#     print(filename)
     full_file = join(self.directory,filename)
     abf = pyabf.ABF(full_file)
 
@@ -31,8 +31,6 @@ def analyzeFile(filename,self):
     for sweep_idx in range(abf.sweepCount):
         input_cmd[sweep_idx], AP_count[sweep_idx], input_dur[sweep_idx] = countAPs(abf,sweep_idx,self) # x is time, y is data, c is command
         # print("input: %f, APs: %i\n" % (input_cmd[sweep_idx], AP_count[sweep_idx]))
-        
-    
     return input_cmd, AP_count, input_dur
 
 def getABFFiles(current_dir):
