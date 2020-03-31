@@ -13,34 +13,49 @@ from patchAnalysis import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.backend_bases import key_press_handler
+from tkinter.messagebox import showinfo
 
+bg_color = 'snow3'
+styles = ['flat','raised','sunken','groove','ridge']
+sty = 3
+size = 2
+NULL_DIR_STR = "* SET DIRECTORY *"
+instruction_text = """
+1. [Select] to choose directory with .abf files
+2. [Save] saves data from each file in 
+directory as a .csv in a specified folder
+3. [Reset] clears all data and plots.
+
+NOTE:
+- Auto mode plots all files in the directory
+- Manual mode only plots selected files
+- Use tool bar to interact with plot
+"""
 class patchAnalysisTool(tk.Frame):
     def __init__(self, master=None):
         tk.Frame.__init__(self,master)
         master.title("Patching Analysis Tool")
         self.master = master
-        # Plotting
-        self.fig = Figure(figsize=(5, 4), dpi=100)
-        self.canvas = FigureCanvasTkAgg(self.fig, master=master)  # A tk.DrawingArea.
-        self.canvas.draw()
-        self.toolbar = NavigationToolbar2Tk(self.canvas, master)
-        self.toolbar.update()
-
-        # Pack plot because it's not in a frame
-        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         # DEFINE FRAMES
-        self.DIR_FRAME = tk.Frame(root, height=50,width=600,bg='indigo')
-        self.LIST_FRAME = tk.Frame(self.master, height=300,width=200,bg='violet')
-        self.MODE_FRAME = tk.Frame(self.master, height=100,width=200,bg='orange')
-        self.CONTROLS_FRAME = tk.Frame(self.master, height=100,width=100,bg='yellow')
+        self.DIR_FRAME = tk.Frame(self.master, height=50,width=600,bg=bg_color,relief=styles[sty],borderwidth = size)
+        self.LIST_FRAME = tk.Frame(self.master, height=300,width=200,bg=bg_color,relief=styles[sty],borderwidth = size)
+        self.MODE_FRAME = tk.Frame(self.master, height=100,width=200,bg=bg_color,relief=styles[sty],borderwidth = size)
+        self.CONTROLS_FRAME = tk.Frame(self.master, height=100,width=100,bg=bg_color,relief=styles[sty],borderwidth = size)
+        self.INSTR_FRAME = tk.Frame(self.master, height=100,width=100,bg=bg_color,relief=styles[sty],borderwidth = size)
         
+        # Plotting
+        self.fig = Figure(figsize=(5, 4), dpi=100)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.master)  # A tk.DrawingArea.
+        self.canvas.draw()
+        self.toolbar = NavigationToolbar2Tk(self.canvas, self.master)
+        self.toolbar.update()
+
         # wrapped commands
         vcmd = self.master.register(self.validate) # we have to wrap the command
-        # mccmd = self.master.register(self.modeChange) # we have to wrap the modeChange command
         
         # DEFINE: VARIABLES
-        self.directory = "* SET DIRECTORY *"
+        self.directory = NULL_DIR_STR
         self.input_cmd = np.empty((1,1))
         self.AP_count = np.empty((1,1))
         self.input_dur = np.empty((1,1))
@@ -48,7 +63,7 @@ class patchAnalysisTool(tk.Frame):
         self.mode.set(0)
         self.cap = 1
         self.modes = {"Auto" : "0", "Manual" : "1"}
-        self.mode.trace('w', self.modeChange)
+        self.mode.trace_add("write", self.modeChange)
 
         # DEFINE: CONTAINERS
         self.abffile_box = tk.Listbox(self.LIST_FRAME,selectmode=tk.EXTENDED) #yscrollcommand=scrollbar.set)
@@ -73,44 +88,103 @@ class patchAnalysisTool(tk.Frame):
         # DEFINE: BUTTONS
         self.select_button = tk.Button(self.CONTROLS_FRAME, text="Select", command=lambda: self.update("select"))
         self.reset_button = tk.Button(self.CONTROLS_FRAME, text="Reset", command=lambda: self.update("reset"))
-        for (text,value) in self.modes.items():
-            tk.Radiobutton(self.MODE_FRAME,text=text,variable=self.mode,value=value).pack(anchor=tk.CENTER,ipady=5)
+        self.save_button = tk.Button(self.CONTROLS_FRAME, text=" Save ", command=lambda: self.update("save"))
+        self.auto_button = tk.Radiobutton(self.MODE_FRAME,text="Auto",variable=self.mode,value=0)
+        self.manual_button = tk.Radiobutton(self.MODE_FRAME,text="Manual",variable=self.mode,value=1)
+        self.help_button = tk.Button(self.INSTR_FRAME, text="Help", command=self.popup_showinfo)
         
+        # COLORING
+        self.abffile_box.configure(background='snow2')
+        self.directory_display.configure(background=bg_color)
+        self.directory_label.configure(background=bg_color)
+        self.cap_label.configure(background=bg_color)
+        self.auto_button.configure(background=bg_color)
+        self.manual_button.configure(background=bg_color)
+        self.save_button.configure(background=bg_color)
+        self.reset_button.configure(background=bg_color)
+        self.help_button.configure(background=bg_color)
+        self.select_button.configure(background=bg_color)
+        
+        # Pack plot because it's not in a frame
+        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
         # LAYOUT PACKING
         self.DIR_FRAME.pack(side=tk.TOP,fill=tk.X)
         self.LIST_FRAME.pack(side=tk.LEFT,fill=tk.Y)
         self.CONTROLS_FRAME.pack(side=tk.RIGHT,fill=tk.Y)
         self.MODE_FRAME.pack(side=tk.RIGHT,fill=tk.Y)
+        self.INSTR_FRAME.pack(side=tk.RIGHT,fill=tk.BOTH,expand=1)
         
-        self.directory_label.pack(side=tk.TOP,expand=0)
-        self.directory_display.pack(side=tk.TOP,expand=0)
+        self.directory_label.pack(side=tk.LEFT,expand=0)
+        self.directory_display.pack(side=tk.LEFT,expand=0)
         self.abffile_box.pack(side=tk.LEFT,fill=tk.Y)
         self.scrollbar.pack(side=tk.RIGHT,fill=tk.Y)
         self.cap_label.pack(side=tk.TOP,expand=0)
         self.cap.pack(side=tk.TOP,fill=tk.X,expand=0)
 
-        self.reset_button.pack(side=tk.RIGHT,fill=tk.Y,expand=0)
-        self.select_button.pack(side=tk.RIGHT,fill=tk.Y,expand=0)
+        self.auto_button.pack(side=tk.TOP,fill=tk.Y,expand=1,anchor=tk.W)
+        self.manual_button.pack(side=tk.TOP,fill=tk.Y,expand=1,anchor=tk.W)
 
-    def modeChange(self):
+        self.select_button.pack(side=tk.TOP,fill=tk.BOTH,expand=0)
+        self.reset_button.pack(side=tk.RIGHT,fill=tk.BOTH,expand=1)
+        self.save_button.pack(side=tk.RIGHT,fill=tk.BOTH,expand=1)
+        self.help_button.pack(anchor=tk.E)
+    
+        self.poll()
+
+    def popup_showinfo(self):
+        showinfo("Help", instruction_text)
+
+    def poll(self):
+        now = self.abffile_box.curselection()
+        if now != self.file_selection:
+            self.file_selection = now
+            self.modeChange
+            self.canvas.draw()  
+            print("CHANGE DETECTED\n")
+            print(self.mode.get())
+        self.after(100, self.poll)
+
+    def updatePlot(self):
         self.ax = self.fig.add_subplot(111)
-        self.ax.cla()
+        self.ax.clear()
         self.ax.set_ylabel('Firing Frequency [Hz]')
         self.ax.set_xlabel('Current Density [pA/pF]')
-        if self.directory != "* SET DIRECTORY *":
-            if self.mode.get() == 0:
+        abf = pyabf.ABF(join(self.directory,self.abf_files[0]))
+        # Plot data depending on mode 
+        if self.mode.get() == 0: # auto mode 
+            print("Mode = auto")
+            for item in self.abf_files:
+                print(item)
+                self.input_cmd, self.AP_count, self.input_dur = analyzeFile(item,self)
+                self.step_time = self.input_dur[0]/abf.dataRate*1000
+                self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o") 
+        else: # manual mode
+            print("manual plotting not working")
+            for sel in self.file_selection:
+                print(sel)
+                self.input_cmd, self.AP_count, self.input_dur = analyzeFile(item,self)
+                self.step_time = self.input_dur[0]/abf.dataRate*1000
                 self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o")
-            elif self.mode.get() == 1:
-                for sel in self.file_selection:
-                    print(sel)
-                    self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o")
+        self.canvas.draw()
         return
+
+    def modeChange(self, *args):
+        # Set up plot axes
+        self.ax = self.fig.add_subplot(111)
+        self.ax.clear()
+        self.ax.set_ylabel('Firing Frequency [Hz]')
+        self.ax.set_xlabel('Current Density [pA/pF]')
+
+        # If there is a directory selected, update plot, otherwise do nothing. 
+        if self.directory != NULL_DIR_STR:
+            self.updatePlot
+        self.canvas.draw()
 
     def validate(self, new_text):
         if not new_text: # the field is being cleared
             self.entered_number = 0
             return True
-
         try:
             self.entered_number = int(new_text)
             return True
@@ -122,33 +196,30 @@ class patchAnalysisTool(tk.Frame):
             self.directory = filedialog.askdirectory()
             self.directory_label_text.set(self.directory)
             self.abf_files = [f for f in listdir(self.directory) if isfile(join(self.directory, f)) & f.endswith(".abf")]
-            abf = pyabf.ABF(join(self.directory,self.abf_files[0]))
-            self.ax = self.fig.add_subplot(111)
-            self.ax.cla()
-            self.ax.set_ylabel('Firing Frequency [Hz]')
-            self.ax.set_xlabel('Current Density [pA/pF]')
-
-            for item in self.abf_files:
-                self.abffile_box.insert(tk.END,item)
-                self.input_cmd, self.AP_count, self.input_dur = analyzeFile(item,self)
-                self.step_time = self.input_dur[0]/abf.dataRate*1000
-                if self.mode.get() == 0:
-                    self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o")
-            if self.mode.get() == 1:
-                for sel in self.file_selection:
-                    self.input_cmd, self.AP_count, self.input_dur = analyzeFile(item,self)
-                    self.step_time = self.input_dur[0]/abf.dataRate*1000
-                    self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o")
-        # elif method == "auto-refresh":
-        #     # do nothing
+            for abf in self.abf_files:
+                self.abffile_box.insert(tk.END,abf)
+            self.updatePlot()
+            print("PLOT UPDATED?")
         elif method == "reset":
+            # Clear selected directory
             self.directory = "* SELECT DIRECTORY *"
             self.directory_label_text.set(self.directory)
+
+            # Clear file list
             self.abf_files=[None]
             self.abffile_box.delete(0,tk.END)
 
+            # Clear plot
+            self.ax = self.fig.add_subplot(111)
+            self.ax.clear()
+            self.ax.set_ylabel('Firing Frequency [Hz]')
+            self.ax.set_xlabel('Current Density [pA/pF]')
+        self.canvas.draw()
+
+
 root = tk.Tk()
 root.geometry("600x600+50+100") #width x height + x and y screen dims
+root.configure(bg=bg_color)
 my_gui = patchAnalysisTool(root)
 root.mainloop()
 
