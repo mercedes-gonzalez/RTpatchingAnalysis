@@ -14,54 +14,72 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.backend_bases import key_press_handler
 
-class patchAnalysisTool:
-    def __init__(self, master):
-        self.master = master
+class patchAnalysisTool(tk.Frame):
+    def __init__(self, master=None):
+        tk.Frame.__init__(self,master)
         master.title("Patching Analysis Tool")
+        self.master = master
+        # Plotting
+        self.fig = Figure(figsize=(5, 4), dpi=100)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=master)  # A tk.DrawingArea.
+        self.canvas.draw()
+        self.toolbar = NavigationToolbar2Tk(self.canvas, master)
+        self.toolbar.update()
+
+        # Pack plot because it's not in a frame
+        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+        # DEFINE FRAMES
+        DIR_FRAME = tk.Frame(self, height=50,width=600,bg='indigo').pack(side=tk.TOP,fill=tk.X)
+        LIST_FRAME = tk.Frame(self, height=300,width=200,bg='violet').pack(side=tk.LEFT,fill=tk.Y)
+        MODE_FRAME = tk.Frame(self, height=100,width=200,bg='orange').pack(side=tk.RIGHT,fill=tk.Y)
+        CONTROLS_FRAME = tk.Frame(self, height=100,width=100,bg='yellow').pack(side=tk.RIGHT,fill=tk.Y)
+        
         # DEFINE: VARIABLES
         self.input_cmd = np.empty((1,1))
         self.AP_count = np.empty((1,1))
         self.input_dur = np.empty((1,1))
         # DEFINE: CONTAINERS
+        self.abffile_box = tk.Listbox(LIST_FRAME) #yscrollcommand=scrollbar.set)
 
-        # File list
-        # self.abffiles = [None]
-        # scrollbar = tk.Scrollbar(master,orient=tk.VERTICAL)
-        # scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.abffile_box = tk.Listbox(master) #yscrollcommand=scrollbar.set)
-        # scrollbar.config(command=self.abffile_box.yview)
-        
-        # Plotting
-        self.fig = Figure(figsize=(5, 4), dpi=100)
-                
-        self.canvas = FigureCanvasTkAgg(self.fig, master=root)  # A tk.DrawingArea.
-        self.canvas.draw()
 
-        self.toolbar = NavigationToolbar2Tk(self.canvas, root)
-        self.toolbar.update()
         # Directory handling
         self.directory = "* SET DIRECTORY *"
         self.directory_label_text = tk.StringVar()
         self.directory_label_text.set(self.directory)
-        self.directory_display = tk.Label(master, textvariable=self.directory_label_text)
-        self.directory_label = tk.Label(master, text="Directory:")
+        self.directory_display = tk.Label(DIR_FRAME, textvariable=self.directory_label_text)
+        self.directory_label = tk.Label(DIR_FRAME, text="Directory:")
 
-        vcmd = master.register(self.validate) # we have to wrap the command
-        self.cap = tk.Entry(master, validate="key", validatecommand=(vcmd, '%P'))
+        # Capacitance
+        self.cap = 1
+        self.cap_label_text = tk.IntVar()
+        self.cap_label_text.set(self.cap)
+        self.cap_label = tk.Label(DIR_FRAME, text="Capacitance [pF]:")
+
+        vcmd = self.master.register(self.validate) # we have to wrap the command
+        self.cap = tk.Entry(CONTROLS_FRAME, validate="key", validatecommand=(vcmd, '%P'))
 
 
         # DEFINE: BUTTONS
-        self.select_button = tk.Button(master, text="Select", command=lambda: self.update("select"))
-        self.reset_button = tk.Button(master, text="Reset", command=lambda: self.update("reset"))
+        self.select_button = tk.Button(CONTROLS_FRAME, text="Select", command=lambda: self.update("select"))
+        self.reset_button = tk.Button(CONTROLS_FRAME, text="Reset", command=lambda: self.update("reset"))
         
         # LAYOUT
-        self.directory_label.pack(side=tk.TOP,expand=0)
+        self.directory_label.pack(side=tk.TOP,fill=tk.X,expand=0)
         self.directory_display.pack(side=tk.TOP,fill=tk.X,expand=0)
         self.abffile_box.pack(side=tk.LEFT,fill=tk.Y)
-        self.cap.pack(side=tk.TOP)
-        self.canvas.get_tk_widget().pack(side=tk.RIGHT)
-        self.reset_button.pack(side=tk.RIGHT,expand=0)
-        self.select_button.pack(side=tk.RIGHT,expand=0)
+        self.cap_label.pack(side=tk.TOP,expand=0)
+        self.cap.pack(side=tk.TOP,fill=tk.X,expand=0)
+
+        self.reset_button.pack(side=tk.RIGHT,fill=tk.Y,expand=0)
+        self.select_button.pack(side=tk.RIGHT,fill=tk.Y,expand=0)
+
+    def refreshFigure(self,x,y):
+        self.line1.set_data(x,y)
+        ax = self.canvas.figure.axes[0]
+        ax.set_xlim(x.min(), x.max())
+        ax.set_ylim(y.min(), y.max())
+        self.canvas.draw()
 
     def validate(self, new_text):
         if not new_text: # the field is being cleared
@@ -85,8 +103,11 @@ class patchAnalysisTool:
                 self.abffile_box.insert(tk.END,item)
                 self.input_cmd, self.AP_count, self.input_dur = analyzeFile(item,self)
                 self.step_time = self.input_dur[0]/abf.dataRate*1000
-                self.fig.add_subplot(111).plot(self.input_cmd/22,self.AP_count/self.step_time,"o")
-
+                ax = self.fig.add_subplot(111)
+                ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o")
+                ax.set_ylabel('Firing Frequency [Hz]')
+                ax.set_xlabel('Current Density [pA/pF]')
+                # self.set_ylabel('Current Density (pA/pF)')
         elif method == "reset":
             self.directory = "* SELECT DIRECTORY *"
             self.directory_label_text.set(self.directory)
