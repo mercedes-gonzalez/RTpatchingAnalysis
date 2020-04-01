@@ -137,8 +137,9 @@ class patchAnalysisTool(tk.Frame):
         self.ax.set_ylabel('Firing Frequency [Hz]')
         self.ax.set_xlabel('Current Density [pA/pF]')
 
-        # Check for change in selection
+        # Check for change in selection and new files in directory
         self.poll()
+        self.probeForNewFiles()
 
     def popup_help(self):
         showinfo("Help", instruction_text)
@@ -156,6 +157,18 @@ class patchAnalysisTool(tk.Frame):
             self.modeChange()
             self.canvas.draw()  
         self.after(100, self.poll)
+
+    def probeForNewFiles(self):
+        if self.mode.get() == 0 and self.directory != NULL_DIR_STR:
+            now = [f for f in listdir(self.directory) if isfile(join(self.directory, f)) & f.endswith(".abf")]
+            if now != self.abf_files:
+                self.abf_files = now
+                new_files = list(set(now)-set(self.abf_files))
+                for abf in new_files:
+                    self.abffile_box.insert(tk.END,abf)
+                self.updatePlot()
+                self.canvas.draw()  
+        self.after(2000, self.probeForNewFiles)
 
     def updatePlot(self):
         self.ax = self.fig.add_subplot(111)
@@ -185,6 +198,7 @@ class patchAnalysisTool(tk.Frame):
         self.ax.clear()
         self.ax.set_ylabel('Firing Frequency [Hz]')
         self.ax.set_xlabel('Current Density [pA/pF]')
+        # add legend
 
         # If there is a directory selected, update plot, otherwise do nothing. 
         if self.directory != NULL_DIR_STR:
@@ -239,7 +253,6 @@ class patchAnalysisTool(tk.Frame):
             else:
                 self.popup_save(False)
                 return
-
         elif method == "reset":
             # Clear selected directory
             self.directory = NULL_DIR_STR
@@ -265,8 +278,10 @@ root.mainloop()
 
 '''
     TODO 
-    - enable auto-updating every 5 seconds
+    - add legend with filenames, enable turn on and off
+    - enable capacitance entry 
     - membtest plot and analysis
+
 
     DONE
     - select button to select directory
@@ -286,5 +301,6 @@ root.mainloop()
         - prettify the plot
     - save figure (in toolbar)
     - save data in csv
+    - enable auto-updating every 5 seconds
 
 '''
