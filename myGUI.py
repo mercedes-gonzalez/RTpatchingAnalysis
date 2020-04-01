@@ -22,8 +22,7 @@ size = 3
 NULL_DIR_STR = "* SET DIRECTORY *"
 instruction_text = """
 1. [Select] to choose directory with .abf files
-2. [Save] saves data from each file in 
-directory as a .csv in a specified folder
+2. [Save] saves data shown on plot in a .csv located in a specified folder
 3. [Reset] clears all data and plots.
 
 NOTE:
@@ -61,7 +60,6 @@ class patchAnalysisTool(tk.Frame):
         self.input_dur = np.empty((1,1))
         self.mode = tk.IntVar() # 0 is auto, 1 is manual
         self.mode.set(0)
-        self.cap = 1
         self.modes = {"Auto" : "0", "Manual" : "1"}
         self.mode.trace_add("write", self.modeChange)
         # self.leg = tk.IntVar()
@@ -81,11 +79,11 @@ class patchAnalysisTool(tk.Frame):
         self.directory_label = tk.Label(self.DIR_FRAME, text="Directory:")
 
         # Capacitance
-        self.cap_label_text = tk.IntVar()
-        self.cap_label_text.set(self.cap)
+        self.cap_value = tk.DoubleVar()
+        self.cap_value.set(20) # default capactiance
         self.cap_label = tk.Label(self.CONTROLS_FRAME, text="Capacitance [pF]:")
 
-        self.cap = tk.Entry(self.CONTROLS_FRAME, validate="key", validatecommand=(vcmd, '%P'))
+        self.cap_entry = tk.Entry(self.CONTROLS_FRAME, text=self.cap_value,validate="key", validatecommand=(vcmd, '%P'))
 
         # DEFINE: BUTTONS
         self.select_button = tk.Button(self.CONTROLS_FRAME, text="Select", command=lambda: self.update("select"))
@@ -124,7 +122,7 @@ class patchAnalysisTool(tk.Frame):
         self.abffile_box.pack(side=tk.LEFT,fill=tk.Y)
         self.scrollbar.pack(side=tk.RIGHT,fill=tk.Y)
         self.cap_label.pack(side=tk.TOP,expand=0)
-        self.cap.pack(side=tk.TOP,fill=tk.X,expand=0)
+        self.cap_entry.pack(side=tk.TOP,fill=tk.X,expand=0)
 
         self.auto_button.pack(side=tk.TOP,fill=tk.Y,expand=1,anchor=tk.W)
         self.manual_button.pack(side=tk.TOP,fill=tk.Y,expand=1,anchor=tk.W)
@@ -187,15 +185,15 @@ class patchAnalysisTool(tk.Frame):
         if self.mode.get() == 0: # auto mode 
             for item in self.abf_files:
                 self.input_cmd, self.AP_count, self.input_dur = analyzeFile(item,self)
-                self.step_time = self.input_dur[0]/abf.dataRate*1000
-                self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o",label=item) 
+                self.step_time = self.input_dur[0]/abf.dataRate
+                self.ax.plot(self.input_cmd/float(self.cap_entry.get()),self.AP_count/self.step_time,"o",label=item) 
         else: # manual mode
             user_selected = self.abffile_box.curselection()
             selected = [self.abf_files[int(item)] for item in user_selected]
             for sel in selected:
                 self.input_cmd, self.AP_count, self.input_dur = analyzeFile(sel,self)
-                self.step_time = self.input_dur[0]/abf.dataRate*1000
-                self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o",label=sel)
+                self.step_time = self.input_dur[0]/abf.dataRate
+                self.ax.plot(self.input_cmd/float(self.cap_entry.get()),self.AP_count/self.step_time,"o",label=sel)
         self.ax.legend(fancybox=True,shadow=True,bbox_to_anchor=(1, 0.7),prop={'size':8})
         self.canvas.draw()
         return
@@ -232,29 +230,36 @@ class patchAnalysisTool(tk.Frame):
             self.updatePlot()
         elif method == "save": # save all data plotted in one csv with a column for filename 
             count = 0
+            abf = pyabf.ABF(join(self.directory,self.abf_files[0]))
+            self.step_time = self.input_dur[0]/abf.dataRate
             if self.mode.get() == 0: # if in auto mode
                 for item in self.abf_files:
                     self.input_cmd, self.AP_count, self.input_dur = analyzeFile(item,self)
-                    temp_data = np.concatenate((self.input_cmd,self.AP_count),axis=1) # concatenate horizontally 
-                    count = count + 1 
+                    names = np.vstack(np.array([item]*len(self.input_cmd),dtype='str'))
+                    namesInput = np.hstack((names,self.input_cmd/float(self.cap_entry.get())))
+                    temp_data = np.hstack((namesInput,self.AP_count/self.step_time)) # concatenate horizontally 
+                    count = count + 1
                     if count == 1:
                         all_data = temp_data
                     else:
-                        all_data = np.concatenate((all_data,temp_data),axis=0) # concatenate vertically
+                        all_data = np.vstack((all_data,temp_data)) # concatenate vertically
             else: # manual mode 
                 user_selected = self.abffile_box.curselection()
                 selected = [self.abf_files[int(item)] for item in user_selected]
                 for sel in selected:
                     self.input_cmd, self.AP_count, self.input_dur = analyzeFile(sel,self)
-                    temp_data = np.concatenate((self.input_cmd,self.AP_count),axis=1) # concatenate horizontally 
+                    names = np.vstack(np.array([sel]*len(self.input_cmd),dtype='str'))
+                    namesInput = np.hstack((names,self.input_cmd/float(self.cap_entry.get())))
+                    temp_data = np.hstack((namesInput,self.AP_count/self.step_time)) # concatenate horizontally 
                     count = count + 1 
                     if count == 1:
                         all_data = temp_data
                     else:
-                        all_data = np.concatenate((all_data,temp_data),axis=0)
+                        all_data = np.vstack((all_data,temp_data))
+            
             f = filedialog.asksaveasfilename(filetypes=[('Comma separated variable', '.csv')],defaultextension='.csv')
             if f: # asksaveasfile return `None` if dialog closed with "cancel".
-                np.savetxt(f, all_data, delimiter=',', fmt=['%1.3f','%d'], header='Current (pA), Num APs')
+                np.savetxt(f, all_data, delimiter=',', fmt='%s', header='Filename, Current Density (pA/pF), Fire Freq (Hz)')
                 self.save_text = """ Data saved successfully at """ + f
                 self.popup_save(True)
             else:

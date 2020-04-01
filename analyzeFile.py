@@ -32,37 +32,38 @@ if SHOW_HEAD: abf.headerLaunch()
 for file_name in abf_files:
     full_file = join(my_path, file_name)
     abf = pyabf.ABF(full_file)
+    abf.headerLaunch()
 
-    input_cmd = np.empty((abf.sweepCount,1))
-    AP_count = np.empty((abf.sweepCount,1))
-    input_dur = np.empty((abf.sweepCount,1))
+    # input_cmd = np.empty((abf.sweepCount,1))
+    # AP_count = np.empty((abf.sweepCount,1))
+    # input_dur = np.empty((abf.sweepCount,1))
     
     # Plot membrane test if available
     # plotMembraneTest(abf)
 
     # Analyze traces
-    for sweep_idx in range(abf.sweepCount):
-        input_cmd[sweep_idx], AP_count[sweep_idx], input_dur[sweep_idx] = countAPs(abf,sweep_idx,SHOW_PLOTS) # x is time, y is data, c is command
-        # print("input: %f, APs: %i\n" % (input_cmd[sweep_idx], AP_count[sweep_idx]))
+#     for sweep_idx in range(abf.sweepCount):
+#         input_cmd[sweep_idx], AP_count[sweep_idx], input_dur[sweep_idx] = countAPs(abf,sweep_idx,SHOW_PLOTS) # x is time, y is data, c is command
+#         # print("input: %f, APs: %i\n" % (input_cmd[sweep_idx], AP_count[sweep_idx]))
     
-    # Plot 
-    if SHOW_FINAL_PLOT:
-        plt.figure()
-        plt.plot(input_cmd,AP_count,"o")
+#     # Plot 
+#     if SHOW_FINAL_PLOT:
+#         plt.figure()
+#         plt.plot(input_cmd,AP_count,"o")
 
-if SHOW_FINAL_PLOT:
-    plt.xlabel("Input Current (pA)")
-    plt.ylabel("Num Action Potentials")
-    plt.show() 
+# if SHOW_FINAL_PLOT:
+#     plt.xlabel("Input Current (pA)")
+#     plt.ylabel("Num Action Potentials")
+#     plt.show() 
 
-step_time = input_dur[0]/abf.dataRate*1000 # convert from input duration in samples to input duration in seconds
-# step_time = .2 # temp 
-plt.figure()
-plt.plot(input_cmd/cap,AP_count/step_time)
-plt.plot(input_cmd/cap,AP_count/step_time,"o")
-plt.xlabel("Current Density (pA/pF)")
-plt.ylabel("Firing Frequency (Hz)")
-plt.show()
-# Save as csv
-all_data = np.concatenate((input_cmd,AP_count),axis=1)
-np.savetxt(csv_file, all_data, delimiter=',', fmt=['%f','%d'], header='Current (pA), Num APs')
+# step_time = input_dur[0]/abf.dataRate*1000 # convert from input duration in samples to input duration in seconds
+# # step_time = .2 # temp 
+# plt.figure()
+# plt.plot(input_cmd/cap,AP_count/step_time)
+# plt.plot(input_cmd/cap,AP_count/step_time,"o")
+# plt.xlabel("Current Density (pA/pF)")
+# plt.ylabel("Firing Frequency (Hz)")
+# plt.show()
+# # Save as csv
+# all_data = np.concatenate((input_cmd,AP_count),axis=1)
+# np.savetxt(csv_file, all_data, delimiter=',', fmt=['%f','%d'], header='Current (pA), Num APs')
