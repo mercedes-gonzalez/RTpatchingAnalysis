@@ -107,6 +107,7 @@ class patchAnalysisTool(tk.Frame):
         
         # Pack plot because it's not in a frame
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        self.toolbar.pack(side=tk.TOP,fill=tk.X,expand=1)
 
         # LAYOUT PACKING
         self.DIR_FRAME.pack(side=tk.TOP,fill=tk.X)
@@ -130,6 +131,13 @@ class patchAnalysisTool(tk.Frame):
         self.save_button.pack(side=tk.RIGHT,fill=tk.BOTH,expand=1)
         self.help_button.pack(anchor=tk.E)
     
+        # Configure Plot Initially
+        self.ax = self.fig.add_subplot(111)
+        self.ax.clear()
+        self.ax.set_ylabel('Firing Frequency [Hz]')
+        self.ax.set_xlabel('Current Density [pA/pF]')
+
+        # Check for change in selection
         self.poll()
 
     def popup_showinfo(self):
@@ -139,7 +147,7 @@ class patchAnalysisTool(tk.Frame):
         now = self.abffile_box.curselection()
         if now != self.file_selection:
             self.file_selection = now
-            self.modeChange
+            self.modeChange()
             self.canvas.draw()  
             print("CHANGE DETECTED\n")
             print(self.mode.get())
@@ -153,17 +161,16 @@ class patchAnalysisTool(tk.Frame):
         abf = pyabf.ABF(join(self.directory,self.abf_files[0]))
         # Plot data depending on mode 
         if self.mode.get() == 0: # auto mode 
-            print("Mode = auto")
             for item in self.abf_files:
-                print(item)
+                # print(item)
                 self.input_cmd, self.AP_count, self.input_dur = analyzeFile(item,self)
                 self.step_time = self.input_dur[0]/abf.dataRate*1000
                 self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o") 
         else: # manual mode
-            print("manual plotting not working")
-            for sel in self.file_selection:
-                print(sel)
-                self.input_cmd, self.AP_count, self.input_dur = analyzeFile(item,self)
+            user_selected = self.abffile_box.curselection()
+            selected = [self.abf_files[int(item)] for item in user_selected]
+            for sel in selected:
+                self.input_cmd, self.AP_count, self.input_dur = analyzeFile(sel,self)
                 self.step_time = self.input_dur[0]/abf.dataRate*1000
                 self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o")
         self.canvas.draw()
@@ -178,7 +185,7 @@ class patchAnalysisTool(tk.Frame):
 
         # If there is a directory selected, update plot, otherwise do nothing. 
         if self.directory != NULL_DIR_STR:
-            self.updatePlot
+            self.updatePlot()
         self.canvas.draw()
 
     def validate(self, new_text):
@@ -202,7 +209,7 @@ class patchAnalysisTool(tk.Frame):
             print("PLOT UPDATED?")
         elif method == "reset":
             # Clear selected directory
-            self.directory = "* SELECT DIRECTORY *"
+            self.directory = NULL_DIR_STR
             self.directory_label_text.set(self.directory)
 
             # Clear file list
