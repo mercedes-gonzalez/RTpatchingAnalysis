@@ -13,12 +13,12 @@ from patchAnalysis import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.backend_bases import key_press_handler
-from tkinter.messagebox import showinfo
+from tkinter.messagebox import showinfo, showwarning
 
 bg_color = 'snow3'
 styles = ['flat','raised','sunken','groove','ridge']
 sty = 3
-size = 2
+size = 3
 NULL_DIR_STR = "* SET DIRECTORY *"
 instruction_text = """
 1. [Select] to choose directory with .abf files
@@ -91,7 +91,7 @@ class patchAnalysisTool(tk.Frame):
         self.save_button = tk.Button(self.CONTROLS_FRAME, text=" Save ", command=lambda: self.update("save"))
         self.auto_button = tk.Radiobutton(self.MODE_FRAME,text="Auto",variable=self.mode,value=0)
         self.manual_button = tk.Radiobutton(self.MODE_FRAME,text="Manual",variable=self.mode,value=1)
-        self.help_button = tk.Button(self.INSTR_FRAME, text="Help", command=self.popup_showinfo)
+        self.help_button = tk.Button(self.INSTR_FRAME, text="Help", command=self.popup_help)
         
         # COLORING
         self.abffile_box.configure(background='snow2')
@@ -107,11 +107,11 @@ class patchAnalysisTool(tk.Frame):
         
         # Pack plot because it's not in a frame
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-        self.toolbar.pack(side=tk.TOP,fill=tk.X,expand=1)
+        self.toolbar.pack(side=tk.TOP,fill=tk.BOTH,expand=1)
 
         # LAYOUT PACKING
-        self.DIR_FRAME.pack(side=tk.TOP,fill=tk.X)
-        self.LIST_FRAME.pack(side=tk.LEFT,fill=tk.Y)
+        self.DIR_FRAME.pack(side=tk.TOP,fill=tk.BOTH)
+        self.LIST_FRAME.pack(side=tk.LEFT,fill=tk.BOTH)
         self.CONTROLS_FRAME.pack(side=tk.RIGHT,fill=tk.Y)
         self.MODE_FRAME.pack(side=tk.RIGHT,fill=tk.Y)
         self.INSTR_FRAME.pack(side=tk.RIGHT,fill=tk.BOTH,expand=1)
@@ -129,7 +129,7 @@ class patchAnalysisTool(tk.Frame):
         self.select_button.pack(side=tk.TOP,fill=tk.BOTH,expand=0)
         self.reset_button.pack(side=tk.RIGHT,fill=tk.BOTH,expand=1)
         self.save_button.pack(side=tk.RIGHT,fill=tk.BOTH,expand=1)
-        self.help_button.pack(anchor=tk.E)
+        self.help_button.pack(anchor=tk.SE)
     
         # Configure Plot Initially
         self.ax = self.fig.add_subplot(111)
@@ -140,8 +140,14 @@ class patchAnalysisTool(tk.Frame):
         # Check for change in selection
         self.poll()
 
-    def popup_showinfo(self):
+    def popup_help(self):
         showinfo("Help", instruction_text)
+
+    def popup_save(self,saved):
+        if saved == False:
+            showwarning("Warning","Data was not saved.")
+        else:
+            showinfo("Save Successful", self.save_text)
 
     def poll(self):
         now = self.abffile_box.curselection()
@@ -149,8 +155,6 @@ class patchAnalysisTool(tk.Frame):
             self.file_selection = now
             self.modeChange()
             self.canvas.draw()  
-            print("CHANGE DETECTED\n")
-            print(self.mode.get())
         self.after(100, self.poll)
 
     def updatePlot(self):
@@ -162,7 +166,6 @@ class patchAnalysisTool(tk.Frame):
         # Plot data depending on mode 
         if self.mode.get() == 0: # auto mode 
             for item in self.abf_files:
-                # print(item)
                 self.input_cmd, self.AP_count, self.input_dur = analyzeFile(item,self)
                 self.step_time = self.input_dur[0]/abf.dataRate*1000
                 self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o") 
@@ -206,7 +209,37 @@ class patchAnalysisTool(tk.Frame):
             for abf in self.abf_files:
                 self.abffile_box.insert(tk.END,abf)
             self.updatePlot()
-            print("PLOT UPDATED?")
+        elif method == "save": # save all data plotted in one csv with a column for filename 
+            count = 0
+            if self.mode.get() == 0: # if in auto mode
+                for item in self.abf_files:
+                    self.input_cmd, self.AP_count, self.input_dur = analyzeFile(item,self)
+                    temp_data = np.concatenate((self.input_cmd,self.AP_count),axis=1) # concatenate horizontally 
+                    count = count + 1 
+                    if count == 1:
+                        all_data = temp_data
+                    else:
+                        all_data = np.concatenate((all_data,temp_data),axis=0) # concatenate vertically
+            else: # manual mode 
+                user_selected = self.abffile_box.curselection()
+                selected = [self.abf_files[int(item)] for item in user_selected]
+                for sel in selected:
+                    self.input_cmd, self.AP_count, self.input_dur = analyzeFile(sel,self)
+                    temp_data = np.concatenate((self.input_cmd,self.AP_count),axis=1) # concatenate horizontally 
+                    count = count + 1 
+                    if count == 1:
+                        all_data = temp_data
+                    else:
+                        all_data = np.concatenate((all_data,temp_data),axis=0)
+            f = filedialog.asksaveasfilename(filetypes=[('Comma separated variable', '.csv')],defaultextension='.csv')
+            if f: # asksaveasfile return `None` if dialog closed with "cancel".
+                np.savetxt(f, all_data, delimiter=',', fmt=['%1.3f','%d'], header='Current (pA), Num APs')
+                self.save_text = """ Data saved successfully at """ + f
+                self.popup_save(True)
+            else:
+                self.popup_save(False)
+                return
+
         elif method == "reset":
             # Clear selected directory
             self.directory = NULL_DIR_STR
@@ -232,15 +265,7 @@ root.mainloop()
 
 '''
     TODO 
-    - read data from only selected files
-    - plot data from selected files
-        - prettify the plot
     - enable auto-updating every 5 seconds
-    - manual vs auto mode 
-        - manual means user chooses files 
-        - auto means grab all files from directory
-    - save data in csv
-    - save figure
     - membtest plot and analysis
 
     DONE
@@ -253,5 +278,13 @@ root.mainloop()
     - interactive plot??? 
     - proper container placement
         - put everything in frames
+    - manual vs auto mode 
+        - manual means user chooses files 
+        - auto means grab all files from directory
+    - read data from only selected files
+    - plot data from selected files
+        - prettify the plot
+    - save figure (in toolbar)
+    - save data in csv
 
 '''
