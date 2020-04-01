@@ -64,6 +64,8 @@ class patchAnalysisTool(tk.Frame):
         self.cap = 1
         self.modes = {"Auto" : "0", "Manual" : "1"}
         self.mode.trace_add("write", self.modeChange)
+        # self.leg = tk.IntVar()
+        # self.leg.set(1)
 
         # DEFINE: CONTAINERS
         self.abffile_box = tk.Listbox(self.LIST_FRAME,selectmode=tk.EXTENDED) #yscrollcommand=scrollbar.set)
@@ -92,6 +94,7 @@ class patchAnalysisTool(tk.Frame):
         self.auto_button = tk.Radiobutton(self.MODE_FRAME,text="Auto",variable=self.mode,value=0)
         self.manual_button = tk.Radiobutton(self.MODE_FRAME,text="Manual",variable=self.mode,value=1)
         self.help_button = tk.Button(self.INSTR_FRAME, text="Help", command=self.popup_help)
+        # self.leg_check = tk.Checkbutton(self.INSTR_FRAME,text="Legend",variable=self.leg,onvalue=1,offvalue=0)
         
         # COLORING
         self.abffile_box.configure(background='snow2')
@@ -129,13 +132,17 @@ class patchAnalysisTool(tk.Frame):
         self.select_button.pack(side=tk.TOP,fill=tk.BOTH,expand=0)
         self.reset_button.pack(side=tk.RIGHT,fill=tk.BOTH,expand=1)
         self.save_button.pack(side=tk.RIGHT,fill=tk.BOTH,expand=1)
+        
         self.help_button.pack(anchor=tk.SE)
-    
+        # self.leg_check.pack(anchor=tk.S)
+
         # Configure Plot Initially
         self.ax = self.fig.add_subplot(111)
         self.ax.clear()
         self.ax.set_ylabel('Firing Frequency [Hz]')
         self.ax.set_xlabel('Current Density [pA/pF]')
+        box = self.ax.get_position()
+        self.ax.set_position([box.x0, box.y0, box.width*.75, box.height])
 
         # Check for change in selection and new files in directory
         self.poll()
@@ -149,7 +156,7 @@ class patchAnalysisTool(tk.Frame):
             showwarning("Warning","Data was not saved.")
         else:
             showinfo("Save Successful", self.save_text)
-
+      
     def poll(self):
         now = self.abffile_box.curselection()
         if now != self.file_selection:
@@ -181,14 +188,15 @@ class patchAnalysisTool(tk.Frame):
             for item in self.abf_files:
                 self.input_cmd, self.AP_count, self.input_dur = analyzeFile(item,self)
                 self.step_time = self.input_dur[0]/abf.dataRate*1000
-                self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o") 
+                self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o",label=item) 
         else: # manual mode
             user_selected = self.abffile_box.curselection()
             selected = [self.abf_files[int(item)] for item in user_selected]
             for sel in selected:
                 self.input_cmd, self.AP_count, self.input_dur = analyzeFile(sel,self)
                 self.step_time = self.input_dur[0]/abf.dataRate*1000
-                self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o")
+                self.ax.plot(self.input_cmd/22,self.AP_count/self.step_time,"o",label=sel)
+        self.ax.legend(fancybox=True,shadow=True,bbox_to_anchor=(1, 0.7),prop={'size':8})
         self.canvas.draw()
         return
 
@@ -198,7 +206,6 @@ class patchAnalysisTool(tk.Frame):
         self.ax.clear()
         self.ax.set_ylabel('Firing Frequency [Hz]')
         self.ax.set_xlabel('Current Density [pA/pF]')
-        # add legend
 
         # If there is a directory selected, update plot, otherwise do nothing. 
         if self.directory != NULL_DIR_STR:
@@ -278,7 +285,6 @@ root.mainloop()
 
 '''
     TODO 
-    - add legend with filenames, enable turn on and off
     - enable capacitance entry 
     - membtest plot and analysis
 
@@ -302,5 +308,6 @@ root.mainloop()
     - save figure (in toolbar)
     - save data in csv
     - enable auto-updating every 5 seconds
+    - add legend with filenames
 
 '''
