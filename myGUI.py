@@ -1,3 +1,18 @@
+"""
+    Python based GUI to analyze patch clamp data during an experiment.
+
+    How to use: Run this file in the background while collecting patch
+    clamp data. The plot automatically udpates with new data if in Auto 
+    mode. 
+
+    Mercedes Gonzalez. March 2020. 
+    m.gonzalez@gatech.edu
+    Precision Biosystems Lab | Georgia Institute of Technology
+    Version Control: https://github.gatech.edu/mgonzalez91/patchingAnalysis
+
+"""
+
+# Import all necessary libraries
 import tkinter as tk 
 from tkinter import filedialog
 from os import listdir
@@ -15,7 +30,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.backend_bases import key_press_handler
 from tkinter.messagebox import showinfo, showwarning
 
+# GUI Formatting params
 bg_color = 'snow3'
+theme = 'dark_background'
 styles = ['flat','raised','sunken','groove','ridge']
 sty = 3
 size = 3
@@ -30,6 +47,7 @@ NOTE:
 - Manual mode only plots selected files
 - Use tool bar to interact with plot
 """
+# Define GUI class
 class patchAnalysisTool(tk.Frame):
     def __init__(self, master=None):
         tk.Frame.__init__(self,master)
@@ -43,36 +61,20 @@ class patchAnalysisTool(tk.Frame):
         self.CONTROLS_FRAME = tk.Frame(self.master, height=100,width=100,bg=bg_color,relief=styles[sty],borderwidth = size)
         self.INSTR_FRAME = tk.Frame(self.master, height=100,width=100,bg=bg_color,relief=styles[sty],borderwidth = size)
         
-        # Plotting
+        # PLOTTING (no frame)
         self.fig = Figure(figsize=(5, 4), dpi=100)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.master)  # A tk.DrawingArea.
         self.canvas.draw()
         self.toolbar = NavigationToolbar2Tk(self.canvas, self.master)
         self.toolbar.update()
 
-        # wrapped commands
-        vcmd = self.master.register(self.validate) # we have to wrap the command
-        
-        # DEFINE: VARIABLES
-        self.directory = NULL_DIR_STR
+        # Variables for plotting later on
         self.input_cmd = np.empty((1,1))
         self.AP_count = np.empty((1,1))
-        self.input_dur = np.empty((1,1))
-        self.mode = tk.IntVar() # 0 is auto, 1 is manual
-        self.mode.set(0)
-        self.modes = {"Auto" : "0", "Manual" : "1"}
-        self.mode.trace_add("write", self.modeChange)
-        # self.leg = tk.IntVar()
-        # self.leg.set(1)
+        self.input_dur = np.empty((1,1))    
 
-        # DEFINE: CONTAINERS
-        self.abffile_box = tk.Listbox(self.LIST_FRAME,selectmode=tk.EXTENDED) #yscrollcommand=scrollbar.set)
-        self.scrollbar = tk.Scrollbar(self.LIST_FRAME)
-        self.scrollbar['command'] = self.abffile_box.yview
-        self.abffile_box['yscrollcommand'] = self.scrollbar.set
-        self.file_selection = [self.abffile_box.get(i) for i in self.abffile_box.curselection()]
-        
-        # Directory handling
+        # DIRECTORY frame
+        self.directory = NULL_DIR_STR
         self.directory_label_text = tk.StringVar()
         self.directory_label_text.set(self.directory)
         self.directory_display = tk.Label(self.DIR_FRAME, textvariable=self.directory_label_text)
@@ -81,19 +83,36 @@ class patchAnalysisTool(tk.Frame):
         # Capacitance
         self.cap_value = tk.DoubleVar()
         self.cap_value.set(20) # default capactiance
+        self.cap_value.trace_add("write", self.capChange)
         self.cap_label = tk.Label(self.CONTROLS_FRAME, text="Capacitance [pF]:")
-
+        vcmd = self.master.register(self.validate) # we have to wrap the command
         self.cap_entry = tk.Entry(self.CONTROLS_FRAME, text=self.cap_value,validate="key", validatecommand=(vcmd, '%P'))
 
-        # DEFINE: BUTTONS
+        # LIST frame
+        self.abffile_box = tk.Listbox(self.LIST_FRAME,selectmode=tk.EXTENDED) #yscrollcommand=scrollbar.set)
+        self.scrollbar = tk.Scrollbar(self.LIST_FRAME)
+        self.scrollbar['command'] = self.abffile_box.yview
+        self.abffile_box['yscrollcommand'] = self.scrollbar.set
+        self.file_selection = [self.abffile_box.get(i) for i in self.abffile_box.curselection()]
+
+        # MODE frame
+        self.mode = tk.IntVar() # 0 is auto, 1 is manual
+        self.mode.set(0)
+        self.modes = {"Auto" : "0", "Manual" : "1"}
+        self.mode.trace_add("write", self.modeChange)
+
+        # Buttons
+        self.auto_button = tk.Radiobutton(self.MODE_FRAME,text="Auto",variable=self.mode,value=0)
+        self.manual_button = tk.Radiobutton(self.MODE_FRAME,text="Manual",variable=self.mode,value=1)
+
+        # CONTROLS frame
         self.select_button = tk.Button(self.CONTROLS_FRAME, text="Select", command=lambda: self.update("select"))
         self.reset_button = tk.Button(self.CONTROLS_FRAME, text="Reset", command=lambda: self.update("reset"))
         self.save_button = tk.Button(self.CONTROLS_FRAME, text=" Save ", command=lambda: self.update("save"))
-        self.auto_button = tk.Radiobutton(self.MODE_FRAME,text="Auto",variable=self.mode,value=0)
-        self.manual_button = tk.Radiobutton(self.MODE_FRAME,text="Manual",variable=self.mode,value=1)
+
+        # INSTRUCTIONS frame
         self.help_button = tk.Button(self.INSTR_FRAME, text="Help", command=self.popup_help)
-        # self.leg_check = tk.Checkbutton(self.INSTR_FRAME,text="Legend",variable=self.leg,onvalue=1,offvalue=0)
-        
+
         # COLORING
         self.abffile_box.configure(background='snow2')
         self.directory_display.configure(background=bg_color)
@@ -132,7 +151,6 @@ class patchAnalysisTool(tk.Frame):
         self.save_button.pack(side=tk.RIGHT,fill=tk.BOTH,expand=1)
         
         self.help_button.pack(anchor=tk.SE)
-        # self.leg_check.pack(anchor=tk.S)
 
         # Configure Plot Initially
         self.ax = self.fig.add_subplot(111)
@@ -146,6 +164,7 @@ class patchAnalysisTool(tk.Frame):
         self.poll()
         self.probeForNewFiles()
 
+# Define GUI Functions
     def popup_help(self):
         showinfo("Help", instruction_text)
 
@@ -180,6 +199,7 @@ class patchAnalysisTool(tk.Frame):
         self.ax.clear()
         self.ax.set_ylabel('Firing Frequency [Hz]')
         self.ax.set_xlabel('Current Density [pA/pF]')
+        
         abf = pyabf.ABF(join(self.directory,self.abf_files[0]))
         # Plot data depending on mode 
         if self.mode.get() == 0: # auto mode 
@@ -194,7 +214,7 @@ class patchAnalysisTool(tk.Frame):
                 self.input_cmd, self.AP_count, self.input_dur = analyzeFile(sel,self)
                 self.step_time = self.input_dur[0]/abf.dataRate
                 self.ax.plot(self.input_cmd/float(self.cap_entry.get()),self.AP_count/self.step_time,"o",label=sel)
-        self.ax.legend(fancybox=True,shadow=True,bbox_to_anchor=(1, 0.7),prop={'size':8})
+        self.ax.legend(fancybox=True,shadow=True,bbox_to_anchor=(1, 1),prop={'size':8})
         self.canvas.draw()
         return
 
@@ -208,6 +228,10 @@ class patchAnalysisTool(tk.Frame):
         # If there is a directory selected, update plot, otherwise do nothing. 
         if self.directory != NULL_DIR_STR:
             self.updatePlot()
+        self.canvas.draw()
+
+    def capChange(self,*args):
+        self.updatePlot()
         self.canvas.draw()
 
     def validate(self, new_text):
@@ -290,9 +314,8 @@ root.mainloop()
 
 '''
     TODO 
-    - enable capacitance entry 
     - membtest plot and analysis
-
+    - dark mode 
 
     DONE
     - select button to select directory
@@ -314,5 +337,6 @@ root.mainloop()
     - save data in csv
     - enable auto-updating every 5 seconds
     - add legend with filenames
+    - enable capacitance entry 
 
 '''

@@ -1,5 +1,5 @@
 '''
-All of the functions and extra code needed for patch analysis.
+All of the functions and extra code needed for patch analysis GUI.
 Mercedes Gonzalez. March 2020. 
 '''
 import tkinter as tk 
@@ -19,7 +19,6 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.backend_bases import key_press_handler
 
 def analyzeFile(filename,self):
-#     print(filename)
     full_file = join(self.directory,filename)
     abf = pyabf.ABF(full_file)
 
@@ -30,19 +29,12 @@ def analyzeFile(filename,self):
     # Analyze traces
     for sweep_idx in range(abf.sweepCount):
         input_cmd[sweep_idx], AP_count[sweep_idx], input_dur[sweep_idx] = countAPs(abf,sweep_idx,self) # x is time, y is data, c is command
-        # print("input: %f, APs: %i\n" % (input_cmd[sweep_idx], AP_count[sweep_idx]))
     return input_cmd, AP_count, input_dur
-
-def getABFFiles(current_dir):
-        abf_files = [f for f in listdir(current_dir) if isfile(join(current_dir, f)) & f.endswith(".abf")]
-        for file_idx in range(len(abf_files)):
-                full_files[file_idx] = join(current_dir, abf_files[file_idx])
-        return full_files
 
 def countAPs(abf, sweep_idx, self):
     # Purpose: To count the number of APs in a trace
-    # Inputs: N/A
-    # Outputs: N/A
+    # Inputs: abf struct, which sweep (index), gui self
+    # Outputs: input command (current), number of APs in trace, input duration (for each trace)
     abf.setSweep(sweep_idx, channel=0)
     time = abf.sweepX
     data = abf.sweepY
@@ -55,17 +47,11 @@ def countAPs(abf, sweep_idx, self):
     is_on = command > baseline_cmd # Create logical mask for when command input is on
     input_dur = np.sum(is_on) # number of samples collected with input ON
     input_cmd = np.array(command[is_on]).mean() # get average of input command
-#     print("%f pA\n" % input_cmd) 
-
 
     # GET NUMBER OF ACTION POTENTIALS
     baseline_data = np.array(data[0:10]).mean() # get baseline data
     peaks, _ = sig.find_peaks(data,height=.5*baseline_data,distance=50,rel_height=0)
     num_APs = len(peaks)
-    
-#     self.fig.add_subplot(111).plot(time, data) # plots APs 
-#     plt.plot(time[peaks], data[peaks],"x")
-#     plt.show()
 
     return input_cmd, num_APs, input_dur
 
