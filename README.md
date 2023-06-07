@@ -1,4 +1,4 @@
-# patchingAnalysis
+# RTpatchingAnalysis
 This tool should be used during a patch clamp experiment in which you are trying to plot the firing frequency vs the current density. GUI checks the selected directory for new files every 2 seconds. The controls for the GUI are as follows: 
 
 Select: 
